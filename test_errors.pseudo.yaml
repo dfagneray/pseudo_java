@@ -1,0 +1,32 @@
+constants: []
+custom_exceptions: []
+definitions: []
+dependencies: []
+main:
+- pseudo_type: Void
+  target:
+    name: a
+    pseudo_type: [List, String]
+    type: local
+  type: assignment
+  value:
+    elements: []
+    pseudo_type: [List, String]
+    type: list
+- pseudo_type: Void
+  target:
+    name: b
+    pseudo_type: [List, String]
+    type: local
+  type: assignment
+  value: '5'
+- args:
+  - {name: b, pseudo_type: String, type: local}
+  message: push
+  pseudo_type: Void
+  receiver:
+    name: a
+    pseudo_type: [List, String]
+    type: local
+  type: standard_method_call
+type: module
