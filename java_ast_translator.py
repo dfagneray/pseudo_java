@@ -2,11 +2,10 @@ import javalang
 import os
 import sys
 import yaml
-import errors
+import pseudo_java
+from pseudo_java.api_translator import JAVA_KNOWN_IMPORTS,BUILTIN_FUNCTIONS,BUILTIN_EQUIVALENT_FUNCTIONS,BUILTIN_ARG_FUNCTIONS,BUILTIN_TYPE_FUNCTIONS,PARTICULAR_FUNCTIONS
+from pseudo_java.helpers import w_type
 
-EQUALS_BUILTIN_TYPES = {
-	'array':	'list'
-}
 
 BUILTIN_TYPES = {
 	'int':	  'Int',
@@ -50,18 +49,6 @@ KEY_TYPES = {'String', 'int', 'float', 'Boolean'}
 
 PSEUDO_KEY_TYPES = {'String', 'Int', 'Float', 'Bool'}
 
-#######
-#Functions#
-
-BUILTIN_FUNCTIONS = {'System.out.println','System.out.print', 'print','println','length', 'all', 'sum','add','index','remove','get','keySet','values'}
-
-BUILTIN_EQUIVALENT_FUNCTIONS = {'add':{'List':'push','Set':'add'},'remove':{'List':'remove','Set':'remove'},'println':'display','print':'display','size':'length','get':'index','put':'index','containsKey':'contains?','keySet':'keys','values':'values'}
-
-BUILTIN_ARG_FUNCTIONS = {'add':'same','remove':'Int','print':'String','println':'String','size':None,'get':'Int','put':'same','containsKey':'same','keySet':None,'values':None}
-
-BUILTIN_TYPE_FUNCTIONS = {'length':'Int','push':'Void','display':'Void','remove':'Void','index':'Void','contains?':'Boolean','add':'Void','keys':['Set','@k'],'values':['List','@v']}
-
-PARTICULAR_FUNCTIONS = {'index'}
 
 BUILTIN_FUNCTIONS_NAMESPACE = {'display':'io'}
 #######
@@ -124,25 +111,8 @@ PSEUDO_COMPARISON_OPS = {
 	'!=': '!='
 
 }
-#Some imports in Java are not useful in Ruby/Python and can be resolved immediately.
-JAVA_KNOWN_IMPORTS = {
-	'java.util.Map' : 'Dictionary',
-	'java.util.HashMap' : 'Dictionary',
-	'java.util.ArrayList' : 'List',
-	'java.util.List' : 'List',
-	'java.util.LinkedList' : 'List'
-}
-
 class JavaASTTranslator:
 	
-	def w_type(self,s):
-		try:
-			return(int(s))
-		except ValueError:
-			try:
-				return float(s)
-			except ValueError:
-				return s.strip('\"')
 	
 	def translate(self,name,source):
 		#The 4 components of the Pseudo-AST
@@ -166,10 +136,9 @@ class JavaASTTranslator:
 		self.index = 0
 		self.file_name = name
 		self.actual_scope = None #Describes the actual scope. It can either be "Class", "Method" or "Block". Used to distinguish variables with the same name in the assignment store.
-			
+	
+	#Main method whose is to redirect correctly each node to his own unit of translation
 	def translate_node(self,node,parent,options):
-		print((node,self.index))
-		print((node,self.index) in self.checked)
 		if ((node,self.index) in self.checked and self.checked[(node,self.index)] == False) or options[0] == 'No check':
 			if(str(node) == 'CompilationUnit'):
 				return self.translate_CU(node,parent,options)				
@@ -264,11 +233,9 @@ class JavaASTTranslator:
 					temp = self.translate_node(arg,node,[options[0],REVERSE_BUILTIN_TYPES[self.ass_store[(node.qualifier,self.name_scope[node.qualifier][-1])]['pseudo_type'][1]]])
 				elif str(arg) == 'MemberReference':
 					val = self.translate_node(arg,node,options)
-					print(val)
 					temp = self.ass_store[(val['reference'],self.name_scope[val['reference']][-1])]
 				elif str(arg) == 'This':
 					val = self.translate_node(arg,node,options)
-					print(val)
 					temp = self.ass_store[(val['reference'],'Class')]
 				else:
 					temp = self.translate_node(arg,node,options)
@@ -398,7 +365,7 @@ class JavaASTTranslator:
 						temp = val
 					args.append(temp)
 					t = t + 1
-				if message['class'] != this:
+				if message['class'] != self.this:
 					if message['pseudo_type'] and len(message['pseudo_type']) > 1:
 						pt = message['pseudo_type'][-1]
 					else:
@@ -420,8 +387,6 @@ class JavaASTTranslator:
 				return {'args':args,'class_name':node.member,'pseudo_type':node.member,'type':'new_instance'}
 		
 		else:
-			print(self.meth_store)
-			print(self.this)
 			raise errors.type_check_error('Method or function not yet translatable by Pseudo-Java : %s' %str(node.member),node.position, self.lines[node.position[0]])
 	
 	#Return Statement
@@ -666,7 +631,6 @@ class JavaASTTranslator:
 						self.index = self.index + 1
 						p = []
 						if(m.return_type != None):
-							print(m.return_type)
 							ret = self.translate_node(m.return_type,m,['No check',None])
 							rt = BUILTIN_TYPES[ret['name']]
 						else:
@@ -717,7 +681,6 @@ class JavaASTTranslator:
 		else:
 			typ = None
 		val = self.translate_node(node.value,node,[options[0],typ])
-		print(self.ass_store)
 		if val != None and 'reference' not in val:
 			if member == None:
 				return val
@@ -836,9 +799,9 @@ class JavaASTTranslator:
 	def translate_LIT(self,node,parent,options):
 		self.index = self.index + 1
 		if(options[1] != None):
-			return {'pseudo_type':BUILTIN_TYPES[options[1]],'type':options[1],'value':self.w_type(node.value)}
+			return {'pseudo_type':BUILTIN_TYPES[options[1]],'type':options[1],'value':w_type(node.value)}
 		else:
-			return {'pseudo_type':None,'type':None,'value':self.w_type(node.value)}
+			return {'pseudo_type':None,'type':None,'value':w_type(node.value)}
 	
 			
 	#LocalVariableDeclaration
@@ -978,7 +941,6 @@ class JavaASTTranslator:
 						return {'pseudo_type':'Void','type':'assignment','target':self.ass_store[(mr['target'],self.name_scope[mr['target']][-1])],'value':selectors}
 					elif(str(d.initializer) == 'ArrayInitializer'):
 						bt = self.translate_node(node.type,node,options)
-						mr = self.translate_node(d,node,options)
 						val = self.translate_node(d,node,[options[0],bt['name']])
 						if d.name in self.name_scope:
 							self.name_scope[d.name].append(self.actual_scope)				
@@ -1075,8 +1037,6 @@ class JavaASTTranslator:
 		if node.arguments != None:
 			for arg in node.arguments:
 				args.append(self.translate_node(arg,node,options))	
-		print('RT')			
-		print(args)
 		if node.name == 'Map':
 			return {'kt':args[0]['name'],'vt':args[1]['name']}
 		return {'args':args,'name':node.name}
@@ -1125,38 +1085,29 @@ class JavaASTTranslator:
 			if ass[1] == 'Method':
 				self.ass_store.pop(ass)
 				self.name_scope[ass[0]].pop()
-		if(node.name == 'main' and self.keep_class == False):
+		if(node.name == 'main' and self.keep_class == True):
 			self.main = self.main_block
 			return None
 		else:
-			if(parent.name == self.file_name and self.keep_class == False):
+			if(self.keep_class == False):
 				return {'block':self.main_block,'name':node.name,'params':p,'pseudo_type':pt,'return_type':rt,'type':'function_definition'}
 			else:
 				return {'block':self.main_block,'is_public':True,'name':node.name,'params':p,'pseudo_type':pt,'return_type':rt,'this':{'name':parent.name,'type':'typename'},'type':'method_definition'}
 	
 	#Field Declaration
 	def translate_FD(self,node,parent,options):
-		print(node)
-		print(node.type)
 		self.index = self.index + 1
 		typ = []
 		typ.append(self.translate_node(node.type,node,options))
 		decl = []
-		print("Declarators")
-		print(typ)
 		for (d,t) in zip(node.declarators,typ):
-			print(d)
-			print(t)
 			decl.append(self.translate_node(d,node,[options[0],t['name']]))
-		print("END DECL")
-		print(decl)
 		if(node.modifiers == {'public'}):
 			is_p = True
 		else:
 			is_p = False
 		#if __init__ not present, return it
 		self.ass_store[(decl[0]['target'],self.actual_scope)]['type'] = 'instance_variable'
-		print(self.ass_store)
 		return {'is_public':is_p,'type':'class_attr','pseudo_type':BUILTIN_TYPES[typ[0]['name']],'name':decl[0]['target']}
 	
 	#This
@@ -1212,7 +1163,7 @@ class JavaASTTranslator:
 				constructors.append(const)
 		self.actual_scope = 'Class'
 		for m in node.methods:
-			meth = self.translate_MD(m,node,options)
+			meth = self.translate_node(m,node,options)
 			if meth != None:
 					definitions.append(meth)
 					if(meth['name'] == node.name):
@@ -1277,12 +1228,8 @@ class JavaASTTranslator:
 					self.index = self.index + 1		
 					params = []
 					pt = ['Function']
-					print(self.checked)
 					for p in c.parameters:
-						print(p)
-						print(self.index)
 						param = self.translate_node(p,c,options)[1]
-						print(param)
 						params.append(param)
 						pt.append(param['pseudo_type'])
 					pt.append(c.name)
@@ -1306,7 +1253,6 @@ class JavaASTTranslator:
 					self.index = self.index + 1
 					p = []
 					if(m.return_type != None):
-						print(m.return_type)
 						ret = self.translate_node(m.return_type,m,options)
 						rt = BUILTIN_TYPES[ret['name']]
 					else:

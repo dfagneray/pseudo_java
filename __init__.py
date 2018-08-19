@@ -1,4 +1,4 @@
-import java_ast_translator
+import pseudo_java.java_ast_translator
 import yaml
 
 def translate(name,source,options):

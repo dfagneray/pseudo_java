@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 import os
 import sys
-import errors
+import pseudo_java
+import pseudo_java.errors
 import pseudo
 import pseudo.errors
-import __init__
 from colorama import init
 from termcolor import colored
 
 USAGE = '''
-pseudo-java <input-filename.java> [<output-filename> / <language>]
+pseudo-java <input-filename.java> [<output-filename> / <language>] [options]
 
 where if you omit <language>, pseudo-java will generate a 
 <input-filename.pseudo.yaml> file with serialized ast 
@@ -24,9 +24,12 @@ it can be:
   cs / csharp
   go
 
+options:
+	-o : Force the methods to be translated as a pure object (otherwise, they can sometimes be interpreted as functions and won't be in the same scope)
+
 examples:
-pseudo-java a.py # generates a.pseudo.yaml
-pseudo-java z.py o.rb # generates a ruby translation in o.rb
+pseudo-java a.java # generates a.pseudo.yaml
+pseudo-java z.java o.rb # generates a ruby translation in o.rb
 '''
 
 def main():
@@ -40,7 +43,7 @@ def main():
 	base, _ = os.path.splitext(filename)
 	try:
 		if len(sys.argv) == 2:
-			clj = __init__.translate_to_yaml(filename,source)
+			clj = pseudo_java.translate_to_yaml(filename,source)
 			with open('%s.pseudo.yaml' % base, 'w') as f:
 				f.write(clj)
 			print(colored('OK\nsaved pseudo ast as %s.pseudo.yaml' % base, 'green'))
@@ -57,12 +60,12 @@ def main():
 			if '%s.%s' % (base, pseudo.FILE_EXTENSIONS[language]) == filename:
 				print(colored('this would overwrite the input file, please choose another name', 'red'))				
 				exit(1)
-			node = pseudo_python.translate(source)
+			node = pseudo_java.translate(filename,source,sys.argv[2:])
 			output = pseudo.generate(node, language)
 			with open('%s.%s' % (base, pseudo.FILE_EXTENSIONS[language]), 'w') as f:
 				f.write(output)	 
 			print(colored('OK\nsaved as %s.%s' % (base, pseudo.FILE_EXTENSIONS[language]), 'green'))
-	except errors.PseudoError as e:
+	except pseudo_java.errors.PseudoError as e:
 		print(colored(e, 'red'))
 		if e.suggestions:
 			print(colored(e.suggestions, 'green'))
