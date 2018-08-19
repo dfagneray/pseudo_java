@@ -9,7 +9,7 @@ from colorama import init
 from termcolor import colored
 
 USAGE = '''
-pseudo-java <input-filename.java> [<output-filename> / <language>] [options]
+pseudo-java-df <input-filename.java> [<output-filename> / <language>] [options]
 
 where if you omit <language>, pseudo-java will generate a 
 <input-filename.pseudo.yaml> file with serialized ast 
@@ -28,8 +28,8 @@ options:
 	-o : Force the methods to be translated as a pure object (otherwise, they can sometimes be interpreted as functions and won't be in the same scope)
 
 examples:
-pseudo-java a.java # generates a.pseudo.yaml
-pseudo-java z.java o.rb # generates a ruby translation in o.rb
+pseudo-java-df a.java # generates a.pseudo.yaml
+pseudo-java-df z.java o.rb # generates a ruby translation in o.rb
 '''
 
 def main():
